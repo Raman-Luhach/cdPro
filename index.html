@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MetroLang Compiler</title>
+  <meta name="description" content="A compiler for Delhi Metro journeys — see every compiler phase: tokens, parse tree, AST, symbol table, semantic checks, IR, optimization and an animated journey.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- fonts load without blocking, so the app also works offline (system fonts are the fallback) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231e3a8a'/%3E%3Cpath d='M6 20h20M6 12h20' stroke='%23F2B705' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='5' fill='white' stroke='%23C2187A' stroke-width='3'/%3E%3C/svg%3E">
+</head>
+<body>
+<div class="app">
+  <!-- ======= header ======= -->
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-logo" viewBox="0 0 40 40" aria-hidden="true">
+        <rect width="40" height="40" rx="10" fill="#1e3a8a"/>
+        <path d="M5 14 H35" stroke="#F2B705" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M5 26 H35" stroke="#1F6FD1" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M14 5 V35" stroke="#C2187A" stroke-width="3.5" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="4.5" fill="#fff" stroke="#111" stroke-width="2"/>
+        <circle cx="14" cy="26" r="4.5" fill="#fff" stroke="#111" stroke-width="2"/>
+      </svg>
+      <div>
+        <h1>MetroLang <span class="line-dots" style="display:inline-flex;vertical-align:middle" id="lineDots"></span></h1>
+        <p>A compiler for Delhi Metro journeys</p>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <select id="examples" class="btn" title="Load an example program"></select>
+    <button class="btn" id="btnGuide" title="Language guide">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Guide</button>
+    <button class="btn" id="btnTests" title="Run the test suite">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Tests</button>
+    <button class="btn ghost" id="btnTheme" title="Toggle light / dark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+  </header>
+
+  <!-- ======= step mode banner ======= -->
+  <div class="step-banner" id="stepBanner">
+    <b id="stepTitle">Step mode</b><span id="stepText"></span>
+    <span style="flex:1"></span>
+    <button class="btn sm" id="stepNext">Next phase ▶</button>
+    <button class="btn sm" id="stepExit">Finish</button>
+  </div>
+
+  <!-- ======= pipeline ======= -->
+  <nav class="pipeline" id="pipeline" aria-label="Compiler phases"></nav>
+
+  <!-- ======= main ======= -->
+  <main class="main">
+    <section class="left">
+      <div class="card editor-card">
+        <div class="panel-head">
+          <h2>Source</h2>
+          <div class="spacer"></div>
+          <div class="station-insert">
+            <input id="stationInput" list="stationList" placeholder="Insert a station…" aria-label="Insert a station name">
+            <datalist id="stationList"></datalist>
+          </div>
+        </div>
+        <div class="editor">
+          <div class="gutter" id="gutter"></div>
+          <div class="code-wrap">
+            <pre id="highlight" aria-hidden="true"></pre>
+            <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="MetroLang source code"></textarea>
+          </div>
+        </div>
+        <div class="panel-head" style="border-top:1px solid var(--border);border-bottom:0">
+          <button class="btn primary" id="btnCompile" title="Compile (Ctrl+Enter)">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Compile</button>
+          <button class="btn" id="btnStep" title="Walk through the phases one by one">Step ⏭</button>
+          <label class="toggle"><input type="checkbox" id="autoCompile" checked> Live compile</label>
+          <div class="spacer"></div>
+          <span class="badge" id="cursorPos">Ln 1, Col 1</span>
+        </div>
+      </div>
+
+      <div class="card console-card">
+        <div class="panel-head">
+          <h2>Console</h2>
+          <span class="badge err" id="errCount">0 errors</span>
+          <span class="badge warn" id="warnCount">0 warnings</span>
+          <div class="spacer"></div>
+          <span class="badge" id="timeBadge">—</span>
+        </div>
+        <div class="console" id="console"></div>
+      </div>
+    </section>
+
+    <section class="card right">
+      <div class="tabs" id="tabs" role="tablist"></div>
+      <div class="tab-body" id="tabBody">
+        <div class="view" id="view-tokens"></div>
+        <div class="view fill" id="view-parse"><div style="display:flex;flex-direction:column;width:100%"><div class="tree-toolbar" id="parseToolbar"></div><div class="tree-box" id="parseTree"></div></div></div>
+        <div class="view fill" id="view-ast"><div style="display:flex;flex-direction:column;width:100%"><div class="tree-toolbar" id="astToolbar"></div><div class="tree-box" id="astTree"></div></div></div>
+        <div class="view" id="view-symbols"></div>
+        <div class="view" id="view-semantic"></div>
+        <div class="view" id="view-ir"></div>
+        <div class="view" id="view-opt"></div>
+        <div class="view fill" id="view-output">
+          <div class="output-grid">
+            <div class="map-pane">
+              <div class="map-controls">
+                <button class="btn sm primary" id="btnPlay">▶ Play</button>
+                <button class="btn sm" id="btnReplay">↺ Replay</button>
+                <select class="btn sm" id="speed" title="Animation speed"><option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option><option value="8">8×</option></select>
+                <div class="seg" id="viewSeg" role="group" aria-label="Map view">
+                  <button data-view="2d" class="on" title="Flat schematic map">2D</button>
+                  <button data-view="3d" title="Cinematic 3D view">3D 🎬</button>
+                </div>
+                <select class="btn sm" id="camMode" title="Camera" hidden>
+                  <option value="cinematic">🎬 Cinematic</option><option value="chase">🚆 Chase</option>
+                  <option value="aerial">🛰 Aerial</option><option value="free">🖐 Free</option>
+                </select>
+                <label class="toggle" id="glowWrap" hidden><input type="checkbox" id="glow" checked> Glow</label>
+                <div class="progress"><i id="progressBar"></i></div>
+                <label class="toggle"><input type="checkbox" id="showAllLabels"> All labels</label>
+              </div>
+              <div class="map-box" id="mapBox">
+                <div class="now-at" id="nowAt" style="display:none"></div>
+                <div class="map-tip" id="mapTip"></div>
+                <div class="map3d-box" id="map3dBox" hidden><div class="map3d-loading" id="map3dLoading">Loading 3D engine…</div></div>
+              </div>
+              <div class="map-controls" style="border-top:1px solid var(--border);border-bottom:0"><div class="legend" id="legend"></div></div>
+            </div>
+            <div class="journey-pane" id="journey"></div>
+          </div>
+        </div>
+        <div class="view" id="view-target"></div>
+        <div class="view" id="view-network"></div>
+      </div>
+    </section>
+  </main>
+  <footer class="footer">
+    <span>MetroLang · Compiler Design Project · AI Product Engineering Track</span>
+    <span>Data: Delhi Metro (Yellow, Blue, Violet, Magenta, Red, Pink) — times and fares are estimates</span>
+  </footer>
+</div>
+
+<!-- ======= modal ======= -->
+<div class="modal-back" id="modalBack">
+  <div class="modal" role="dialog" aria-modal="true">
+    <header><h3 id="modalTitle"></h3><button class="btn ghost" id="modalClose" aria-label="Close">✕</button></header>
+    <div class="body" id="modalBody"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- data + compiler (classic scripts so the page works from file://) -->
+<script src="data/metro-data.js"></script>
+<script src="src/network.js"></script>
+<script src="src/lexer.js"></script>
+<script src="src/parser.js"></script>
+<script src="src/semantic.js"></script>
+<script src="src/irgen.js"></script>
+<script src="src/optimizer.js"></script>
+<script src="src/codegen.js"></script>
+<script src="src/compiler.js"></script>
+<script src="examples/examples.js"></script>
+<script src="tests/cases.js"></script>
+<!-- user interface -->
+<script src="ui/panzoom.js"></script>
+<script src="ui/editor.js"></script>
+<script src="ui/treeView.js"></script>
+<script src="ui/mapView.js"></script>
+<script src="ui/map3d.js"></script>
+<script src="ui/panels.js"></script>
+<script src="ui/app.js"></script>
+</body>
+</html>
